@@ -1,0 +1,133 @@
+import random
+import time
+import json
+import os
+from colorama import init, Fore, Style
+
+init(autoreset=True)
+
+PLAYER_FILE = "players.json"
+
+DICE_ART = {
+    1: ("┌───────┐", "│       │", "│   ●   │", "│       │", "└───────┘"),
+    2: ("┌───────┐", "│ ●     │", "│       │", "│     ● │", "└───────┘"),
+    3: ("┌───────┐", "│ ●     │", "│   ●   │", "│     ● │", "└───────┘"),
+    4: ("┌───────┐", "│ ●   ● │", "│       │", "│ ●   ● │", "└───────┘"),
+    5: ("┌───────┐", "│ ●   ● │", "│   ●   │", "│ ●   ● │", "└───────┘"),
+    6: ("┌───────┐", "│ ●   ● │", "│ ●   ● │", "│ ●   ● │", "└───────┘"),
+}
+
+def in_dice(dice_values):
+    dice_lines = [""] * 5
+    for val in dice_values:
+        art = DICE_ART[val]
+        for i in range(5):
+            dice_lines[i] += Fore.YELLOW + art[i] + "  "
+    for line in dice_lines:
+        print(line)
+
+def roll_dice():
+    return [random.randint(1, 6) for _ in range(3)]
+
+def load_players():
+    if os.path.exists(PLAYER_FILE):
+        with open(PLAYER_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_players(players):
+    with open(PLAYER_FILE, "w") as f:
+        json.dump(players, f, indent=4)
+
+def get_or_create_player(players, name):
+    if name not in players:
+        print(Fore.GREEN + f"🆕 Tạo tài khoản mới cho '{name}' với 1000 xu.")
+        players[name] = 1000
+    else:
+        print(Fore.CYAN + f"🔐 Đăng nhập: {name} | 💰 Số tiền hiện tại: {players[name]}")
+    return players[name]
+
+def play_round(players):
+    current_players = []
+
+    while True:
+        name = input("\n👤 Nhập tên người chơi (hoặc nhấn Enter để bắt đầu): ").strip().lower()
+        if name == "":
+            if not current_players:
+                print(Fore.RED + "❗ Cần ít nhất 1 người chơi!")
+                continue
+            break
+        money = get_or_create_player(players, name)
+        if money <= 0:
+            print(Fore.RED + f"❌ {name} đã hết tiền.")
+        else:
+            current_players.append(name)
+
+    bets = {}
+    choices = {}
+
+    for name in current_players:
+        money = players[name]
+        print(Fore.LIGHTBLUE_EX + f"\n👤 {name} | 💰 {money} xu")
+
+        while True:
+            try:
+                bet = int(input("💵 Nhập số tiền cược: "))
+                if bet <= 0 or bet > money:
+                    print(Fore.RED + "❌ Số tiền không hợp lệ.")
+                    continue
+                break
+            except:
+                print(Fore.RED + "❌ Nhập số hợp lệ.")
+
+        while True:
+            choice = input("🎯 Chọn Tài (T) hoặc Xỉu (X): ").strip().lower()
+            if choice in ['t', 'x']:
+                break
+            else:
+                print(Fore.RED + "❌ Chỉ nhập T hoặc X.")
+
+        bets[name] = bet
+        choices[name] = choice
+
+    print(Fore.MAGENTA + "\n🔄 Lắc xí ngầu...")
+    time.sleep(1)
+    dice = roll_dice()
+    total = sum(dice)
+
+    print(Fore.YELLOW + "\n🎲 Kết quả:")
+    in_dice(dice)
+    print(Fore.LIGHTMAGENTA_EX + f"\n📊 Tổng điểm: {total} → ", end="")
+    result = 't' if total >= 11 else 'x'
+    print(Fore.GREEN + ("TÀI" if result == 't' else "XỈU"))
+
+    for name in current_players:
+        if choices[name] == result:
+            print(Fore.GREEN + f"✅ {name} THẮNG +{bets[name]} xu")
+            players[name] += bets[name]
+        else:
+            print(Fore.RED + f"❌ {name} THUA -{bets[name]} xu")
+            players[name] -= bets[name]
+    show_leaderboard(players)
+    save_players(players)
+
+def main():
+    print(Fore.CYAN + Style.BRIGHT + "\n=== 🎲 GAME TÀI XỈU NHIỀU NGƯỜI CHƠI ===")
+    players = load_players()
+
+    while True:
+        play_round(players)
+        again = input(Fore.LIGHTBLUE_EX + "\n🔁 Tiếp tục? (Y/N): ").strip().lower()
+        if again != 'y':
+            break
+
+    print(Fore.CYAN + "\n👋 Kết thúc game. Dữ liệu đã được lưu.")
+def show_leaderboard(players, top=5):
+    print(Fore.LIGHTYELLOW_EX + "\n🏆 BẢNG XẾP HẠNG:")
+    sorted_players = sorted(players.items(), key=lambda x: x[1], reverse=True)
+    for i, (name, money) in enumerate(sorted_players[:top], start=1):
+        print(Fore.YELLOW + f"{i}. {name} - 💰 {money} xu")
+
+
+if __name__ == "__main__":
+    main()
